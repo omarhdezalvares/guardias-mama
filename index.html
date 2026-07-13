@@ -94,6 +94,20 @@
     cursor:pointer;
   }
   .btn-newweek:active{background:#F5E2E2;}
+  .btn-repeat{
+    width:100%;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size:13.5px;
+    font-weight:600;
+    border:1px solid var(--line);
+    background:#fff;
+    color:var(--plum-dark);
+    border-radius:12px;
+    padding:11px 14px;
+    margin-bottom:16px;
+    cursor:pointer;
+  }
+  .btn-repeat:active{background:#F5F0EA;}
   .day{
     background:var(--card);
     border:1px solid var(--line);
@@ -196,9 +210,9 @@
   .btn-send:active{background:#1FB859;}
   .btn-reset{
     background:#fff;
-    color:var(--ink-soft);
+    color:var(--plum-dark);
     border:1px solid var(--line);
-    flex:0 0 auto;
+    flex:1;
   }
   .toast{
     position:fixed;
@@ -223,6 +237,61 @@
     text-align:center;
     margin-top:14px;
   }
+  .modal-overlay{
+    display:none;
+    position:fixed;
+    inset:0;
+    background:rgba(58,46,44,0.45);
+    align-items:center;
+    justify-content:center;
+    padding:20px;
+    z-index:50;
+  }
+  .modal-overlay.show{display:flex;}
+  .modal-box{
+    background:#fff;
+    border-radius:16px;
+    padding:22px 20px;
+    max-width:360px;
+    width:100%;
+  }
+  .modal-title{
+    font-size:19px;
+    font-weight:600;
+    color:var(--plum-dark);
+    margin-bottom:4px;
+  }
+  .modal-sub{
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size:12.5px;
+    color:var(--ink-soft);
+    margin-bottom:14px;
+    line-height:1.4;
+  }
+  .modal-box select{
+    width:100%;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size:14.5px;
+    padding:10px 8px;
+    border:1px solid var(--line);
+    border-radius:10px;
+    background:#FDFBF9;
+    color:var(--ink);
+    margin-bottom:16px;
+  }
+  .modal-actions{display:flex;gap:8px;}
+  .modal-cancel, .modal-confirm{
+    flex:1;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size:13.5px;
+    font-weight:600;
+    border-radius:10px;
+    padding:11px;
+    cursor:pointer;
+    border:none;
+  }
+  .modal-cancel{background:#F1EBE5;color:var(--ink-soft);}
+  .modal-confirm{background:var(--plum-dark);color:#fff;}
 </style>
 </head>
 <body>
@@ -243,14 +312,27 @@
   <div id="days"></div>
 
   <div class="actions">
-    <button class="btn-reset" id="resetBtn" title="Borrar toda la semana">Limpiar</button>
-    <button class="btn-copy" id="copyBtn">Copiar</button>
+    <button class="btn-reset" id="repeatBtn">🔁 Repetir mis turnos</button>
     <button class="btn-send" id="sendBtn">Abrir en WhatsApp</button>
   </div>
   <div class="status" id="status">Cargando…</div>
 </div>
 
 <div class="toast" id="toast"></div>
+
+<div class="modal-overlay" id="whoModal">
+  <div class="modal-box">
+    <div class="modal-title">¿Quién eres?</div>
+    <div class="modal-sub">Solo se repetirán los turnos que tenías tú la semana pasada.</div>
+    <select id="whoSelect">
+      <option value="">— Selecciona tu nombre —</option>
+    </select>
+    <div class="modal-actions">
+      <button class="modal-cancel" id="whoCancel">Cancelar</button>
+      <button class="modal-confirm" id="whoConfirm">Repetir mis turnos</button>
+    </div>
+  </div>
+</div>
 
 <script>
 const DAYS = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'];
@@ -443,21 +525,73 @@ document.getElementById('newWeekBtn').addEventListener('click', async () => {
   window.open('https://wa.me/?text=' + encodeURIComponent(invite), '_blank');
 });
 
-document.getElementById('resetBtn').addEventListener('click', async () => {
-  if(!confirm('¿Borrar las guardias de la semana que estás viendo (' + weekRangeLabel() + ')?')) return;
-  statusEl.textContent = 'Borrando…';
+const whoModal = document.getElementById('whoModal');
+const whoSelect = document.getElementById('whoSelect');
+NAMES.forEach(n => {
+  const opt = document.createElement('option');
+  opt.value = n;
+  opt.textContent = n;
+  whoSelect.appendChild(opt);
+});
+
+document.getElementById('repeatBtn').addEventListener('click', () => {
+  whoSelect.value = '';
+  whoModal.classList.add('show');
+});
+
+document.getElementById('whoCancel').addEventListener('click', () => {
+  whoModal.classList.remove('show');
+});
+
+document.getElementById('whoConfirm').addEventListener('click', async () => {
+  const me = whoSelect.value;
+  if(!me){
+    showToast('Selecciona tu nombre primero');
+    return;
+  }
+  whoModal.classList.remove('show');
+
+  const parts = weekStart.split('-').map(Number);
+  const prevDate = new Date(parts[0], parts[1] - 1, parts[2]);
+  prevDate.setDate(prevDate.getDate() - 7);
+  const prevWeek = toISODate(prevDate);
+
+  statusEl.textContent = `Repitiendo los turnos de ${me}…`;
   try{
+    const prevSchedule = await apiGetWeek(prevWeek);
+    let copiados = 0;
+    let rechazados = 0;
+    let sinTurnos = true;
+
     for(const day of DAYS){
       for(const slot of ['m','t','n']){
-        await apiSetShift(weekStart, day, slot, '');
+        const name = prevSchedule[day][slot];
+        if(name !== me) continue; // solo nos importan los turnos que eran de "me"
+        sinTurnos = false;
+        if(state[day][slot]) continue; // ya hay alguien puesto en la semana actual, no lo pisamos
+
+        const result = await apiSetShift(weekStart, day, slot, me);
+        if(result.ok){
+          state[day][slot] = me;
+          copiados++;
+        } else {
+          rechazados++;
+        }
       }
     }
-    DAYS.forEach(d => state[d] = { m:'', t:'', n:'' });
-    statusEl.textContent = 'Semana borrada ✓';
+
+    render();
+    if(sinTurnos){
+      statusEl.textContent = `${me} no tenía turnos asignados la semana pasada`;
+    } else if(rechazados === 0){
+      statusEl.textContent = `Copiados ${copiados} turnos de ${me} ✓`;
+    } else {
+      statusEl.textContent = `Copiados ${copiados} de ${me}, ${rechazados} ya estaban ocupados por otra persona`;
+    }
   }catch(err){
-    statusEl.textContent = 'No se pudo borrar en el backend';
+    console.error('Error al repetir la semana pasada:', err);
+    statusEl.textContent = 'No se pudo conectar con el backend para copiar la semana pasada';
   }
-  render();
 });
 
 function buildMessage(){
@@ -472,14 +606,6 @@ function buildMessage(){
   });
   return lines.join('\n').trim();
 }
-
-document.getElementById('copyBtn').addEventListener('click', () => {
-  navigator.clipboard.writeText(buildMessage()).then(() => {
-    showToast('Copiado — pégalo en WhatsApp');
-  }).catch(() => {
-    showToast('No se pudo copiar automáticamente');
-  });
-});
 
 document.getElementById('sendBtn').addEventListener('click', () => {
   const url = 'https://wa.me/?text=' + encodeURIComponent(buildMessage());

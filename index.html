@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Guardias · Mamá</title>
+<style>
+  :root{
+    --bg: #FAF6F1;
+    --card: #FFFFFF;
+    --ink: #3A2E2C;
+    --ink-soft: #7C6B66;
+    --plum: #6B3F4D;
+    --plum-dark: #4E2C37;
+    --rose: #C97B84;
+    --sage: #8A9A7E;
+    --line: #EAE0D8;
+    --amber: #D8A24A;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font-family: 'Iowan Old Style', 'Palatino Linotype', Georgia, serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:640px;margin:0 auto;padding:24px 16px 60px;}
+  header{margin-bottom:22px;}
+  .eyebrow{
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    font-size:11px;
+    color:var(--rose);
+    font-weight:600;
+    margin-bottom:6px;
+  }
+  h1{
+    font-size:28px;
+    margin:0 0 4px;
+    color:var(--plum-dark);
+    font-weight:600;
+    line-height:1.15;
+  }
+  .sub{
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size:13.5px;
+    color:var(--ink-soft);
+    line-height:1.5;
+  }
+  .week-picker{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:12px;
+    padding:10px 14px;
+    margin-bottom:16px;
+  }
+  .week-picker label{
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size:12px;
+    font-weight:600;
+    color:var(--ink-soft);
+  }
+  .week-picker input{
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size:13.5px;
+    border:1px solid var(--line);
+    border-radius:8px;
+    padding:5px 8px;
+    color:var(--ink);
+    background:#FDFBF9;
+  }
+  .day-date{
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size:11.5px;
+    color:var(--rose);
+    font-weight:600;
+  }
+  .day{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:14px 16px;
+    margin-bottom:12px;
+  }
+  .day-name{
+    font-size:17px;
+    font-weight:600;
+    color:var(--plum-dark);
+    margin-bottom:10px;
+    display:flex;
+    align-items:baseline;
+    justify-content:space-between;
+  }
+  .day-name .full-tag{
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size:10.5px;
+    color:var(--sage);
+    font-weight:600;
+    letter-spacing:.04em;
+  }
+  .slots{display:flex;flex-direction:column;gap:8px;}
+  .slot{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:8px 10px;
+    background:#FDFBF9;
+  }
+  .slot.filled{border-color:var(--rose);background:#FBF1F1;}
+  .slot.full.filled{border-color:var(--amber);background:#FCF6E9;}
+  .slot-label{
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size:12px;
+    font-weight:600;
+    color:var(--ink-soft);
+    width:70px;
+    flex-shrink:0;
+  }
+  .slot select{
+    flex:1;
+    border:none;
+    background:transparent;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size:14.5px;
+    color:var(--ink);
+    padding:4px 2px;
+    outline:none;
+    -webkit-appearance:none;
+    appearance:none;
+  }
+  .slot select:invalid, .slot select option[value=""]{color:#C8BDB7;}
+  .clear-x{
+    font-size:14px;
+    color:#C8BDB7;
+    cursor:pointer;
+    width:18px;
+    text-align:center;
+    flex-shrink:0;
+  }
+  .clear-x:hover{color:var(--rose);}
+  .divider{
+    text-align:center;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size:10.5px;
+    color:#C8BDB7;
+    letter-spacing:.1em;
+    margin:2px 0;
+  }
+  .actions{
+    display:flex;
+    gap:10px;
+    margin-top:22px;
+    position:sticky;
+    bottom:12px;
+  }
+  button{
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size:14px;
+    font-weight:600;
+    border:none;
+    border-radius:12px;
+    padding:13px 16px;
+    cursor:pointer;
+    flex:1;
+  }
+  .btn-copy{
+    background:#fff;
+    color:var(--plum-dark);
+    border:1px solid var(--line);
+  }
+  .btn-send{
+    background:#25D366;
+    color:#fff;
+  }
+  .btn-send:active{background:#1FB859;}
+  .btn-reset{
+    background:#fff;
+    color:var(--ink-soft);
+    border:1px solid var(--line);
+    flex:0 0 auto;
+  }
+  .toast{
+    position:fixed;
+    left:50%;
+    bottom:28px;
+    transform:translateX(-50%) translateY(20px);
+    background:var(--plum-dark);
+    color:#fff;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size:13px;
+    padding:10px 18px;
+    border-radius:20px;
+    opacity:0;
+    pointer-events:none;
+    transition:all .25s ease;
+  }
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+  .status{
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size:11px;
+    color:#C8BDB7;
+    text-align:center;
+    margin-top:14px;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Cuidado de Mamá</div>
+    <h1>Guardias — semana de Mamá</h1>
+    <div class="sub">Selecciona quién cubre cada turno y usa "Copiar para WhatsApp" para compartirlo con la familia.</div>
+  </header>
+
+  <div class="week-picker">
+    <label for="weekStart">Semana que empieza el (Lunes)</label>
+    <input type="date" id="weekStart">
+  </div>
+
+  <div id="days"></div>
+
+  <div class="actions">
+    <button class="btn-reset" id="resetBtn" title="Borrar toda la semana">Limpiar</button>
+    <button class="btn-copy" id="copyBtn">Copiar</button>
+    <button class="btn-send" id="sendBtn">Abrir en WhatsApp</button>
+  </div>
+  <div class="status" id="status">Cargando…</div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const DAYS = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'];
+const NAMES = ['Omar','Mayra','Edgar','Luis Fer','Andrea','Eva','Rebeca','Carmen'];
+const MESES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+const KEY = 'guardias-mama-semana-v3';
+let state = {};
+DAYS.forEach(d => state[d] = { m: '', t: '', n: '' }); // m = 8am-2pm, t = 2pm-8pm, n = 8pm-8am (noche)
+let weekStart = '2026-07-13'; // default: Lunes de referencia
+
+const daysEl = document.getElementById('days');
+const statusEl = document.getElementById('status');
+const toastEl = document.getElementById('toast');
+const weekStartInput = document.getElementById('weekStart');
+
+function dateForOffset(offset){
+  const [y,m,d] = weekStart.split('-').map(Number);
+  const base = new Date(y, m-1, d);
+  base.setDate(base.getDate() + offset);
+  return base;
+}
+function formatShort(dt){
+  return `${dt.getDate()} ${MESES[dt.getMonth()]}`;
+}
+function weekRangeLabel(){
+  const start = dateForOffset(0);
+  const end = dateForOffset(6);
+  const sameMonth = start.getMonth() === end.getMonth();
+  if(sameMonth){
+    return `${start.getDate()} al ${end.getDate()} de ${MESES[start.getMonth()]} ${start.getFullYear()}`;
+  }
+  return `${formatShort(start)} al ${formatShort(end)} ${end.getFullYear()}`;
+}
+
+function showToast(msg){
+  toastEl.textContent = msg;
+  toastEl.classList.add('show');
+  setTimeout(()=> toastEl.classList.remove('show'), 1800);
+}
+
+function nameOptions(selected){
+  let opts = `<option value="" ${selected ? '' : 'selected'}>— Sin asignar —</option>`;
+  NAMES.forEach(n => {
+    opts += `<option value="${n}" ${selected === n ? 'selected' : ''}>${n}</option>`;
+  });
+  return opts;
+}
+
+function render(){
+  daysEl.innerHTML = '';
+  DAYS.forEach((day, i) => {
+    const d = state[day];
+    const dateLabel = formatShort(dateForOffset(i));
+    const wrap = document.createElement('div');
+    wrap.className = 'day';
+    wrap.innerHTML = `
+      <div class="day-name">${day} <span class="day-date">${dateLabel}</span></div>
+      <div class="slots">
+        <div class="slot ${d.m ? 'filled' : ''}">
+          <div class="slot-label">8am – 2pm</div>
+          <select data-day="${day}" data-slot="m">${nameOptions(d.m)}</select>
+        </div>
+        <div class="slot ${d.t ? 'filled' : ''}">
+          <div class="slot-label">2pm – 8pm</div>
+          <select data-day="${day}" data-slot="t">${nameOptions(d.t)}</select>
+        </div>
+        <div class="slot full ${d.n ? 'filled' : ''}">
+          <div class="slot-label">8pm – 8am</div>
+          <select data-day="${day}" data-slot="n">${nameOptions(d.n)}</select>
+        </div>
+      </div>
+    `;
+    daysEl.appendChild(wrap);
+  });
+
+  daysEl.querySelectorAll('select').forEach(sel => {
+    sel.addEventListener('change', onChange);
+  });
+}
+
+async function onChange(e){
+  const day = e.target.dataset.day;
+  const slot = e.target.dataset.slot;
+  const val = e.target.value;
+  const previous = state[day][slot];
+
+  // Optimista: se ve el cambio de inmediato
+  state[day][slot] = val;
+  render();
+  statusEl.textContent = 'Guardando…';
+
+  try{
+    const result = await apiSetShift(day, slot, val);
+    if(result.ok){
+      DAYS.forEach(d => { if(result.state.schedule[d]) state[d] = result.state.schedule[d]; });
+      statusEl.textContent = 'Guardado ✓ (compartido con tu familia)';
+    } else {
+      // Alguien más ya tomó ese turno — revertimos y avisamos
+      state[day][slot] = previous;
+      DAYS.forEach(d => { if(result.state && result.state.schedule[d]) state[d] = result.state.schedule[d]; });
+      showToast(result.message || 'Ese turno ya está ocupado');
+      statusEl.textContent = 'No se guardó — turno ocupado por otra persona';
+    }
+  }catch(err){
+    console.error('Error al conectar con el backend:', err);
+    state[day][slot] = previous;
+    statusEl.textContent = 'No se pudo conectar con el backend — revisa la URL configurada';
+  }
+  render();
+}
+
+// PEGA AQUÍ la URL de tu backend (termina en /exec) — ver instrucciones en backend-guardias.gs
+const BACKEND_URL = 'https://script.google.com/macros/s/AKfycbxV4PQq2yZBoYhBgePCWzEZvXdtWGR9z649FHh-gObeeUevR_5vQSjVvOxs-0SqdkyLGA/exec';
+
+let usingSharedStorage = true;
+
+async function apiGet(){
+  const res = await fetch(BACKEND_URL);
+  const data = await res.json();
+  if(!data.ok) throw new Error('Respuesta inválida del backend');
+  return data.state;
+}
+
+async function apiSetShift(day, slot, name){
+  const res = await fetch(BACKEND_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' }, // evita problemas de CORS con Apps Script
+    body: JSON.stringify({ action: 'setShift', day, slot, name })
+  });
+  return await res.json();
+}
+
+async function apiSetWeekStart(newWeekStart){
+  const res = await fetch(BACKEND_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify({ action: 'setWeekStart', weekStart: newWeekStart })
+  });
+  return await res.json();
+}
+
+async function load(){
+  try{
+    const remoteState = await apiGet();
+    if(remoteState.weekStart) weekStart = remoteState.weekStart;
+    DAYS.forEach(d => {
+      if(remoteState.schedule[d]) state[d] = remoteState.schedule[d];
+    });
+    statusEl.textContent = 'Datos compartidos con tu familia';
+  }catch(err){
+    console.error('No se pudo leer el backend:', err);
+    statusEl.textContent = 'No se pudo conectar con el backend — revisa la URL configurada en el código';
+  }
+  weekStartInput.value = weekStart;
+  render();
+}
+
+weekStartInput.addEventListener('change', async () => {
+  const newWeekStart = weekStartInput.value;
+  weekStart = newWeekStart;
+  render();
+  try{
+    await apiSetWeekStart(newWeekStart);
+    statusEl.textContent = 'Semana actualizada ✓';
+  }catch(err){
+    statusEl.textContent = 'No se pudo actualizar la semana en el backend';
+  }
+});
+
+document.getElementById('resetBtn').addEventListener('click', async () => {
+  if(!confirm('¿Borrar todas las guardias de la semana?')) return;
+  statusEl.textContent = 'Borrando…';
+  try{
+    for(const day of DAYS){
+      for(const slot of ['m','t','n']){
+        await apiSetShift(day, slot, '');
+      }
+    }
+    DAYS.forEach(d => state[d] = { m:'', t:'', n:'' });
+    statusEl.textContent = 'Semana borrada ✓';
+  }catch(err){
+    statusEl.textContent = 'No se pudo borrar en el backend';
+  }
+  render();
+});
+
+function buildMessage(){
+  let lines = [`*🩺 Guardias — semana del ${weekRangeLabel()}*`, ''];
+  DAYS.forEach((day, i) => {
+    const d = state[day];
+    lines.push(`*${day} ${formatShort(dateForOffset(i))}*`);
+    lines.push(`🌅 8am–2pm: ${d.m || '—'}`);
+    lines.push(`🌇 2pm–8pm: ${d.t || '—'}`);
+    lines.push(`🌙 8pm–8am: ${d.n || '—'}`);
+    lines.push('');
+  });
+  return lines.join('\n').trim();
+}
+
+document.getElementById('copyBtn').addEventListener('click', () => {
+  navigator.clipboard.writeText(buildMessage()).then(() => {
+    showToast('Copiado — pégalo en WhatsApp');
+  }).catch(() => {
+    showToast('No se pudo copiar automáticamente');
+  });
+});
+
+document.getElementById('sendBtn').addEventListener('click', () => {
+  const url = 'https://wa.me/?text=' + encodeURIComponent(buildMessage());
+  window.open(url, '_blank');
+});
+
+load();
+</script>
+</body>
+</html>

@@ -238,7 +238,7 @@
     <input type="date" id="weekStart">
   </div>
 
-  <button class="btn-newweek" id="newWeekBtn">➜ Nueva semana (avanza 7 días y limpia turnos)</button>
+  <button class="btn-newweek" id="newWeekBtn">➜ Nueva semana (avanza 7 días)</button>
 
   <div id="days"></div>
 
@@ -256,10 +256,30 @@
 const DAYS = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'];
 const NAMES = ['Omar','Mayra','Edgar','Luis Fer','Andrea','Eva','Rebeca','Carmen'];
 const MESES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
-const KEY = 'guardias-mama-semana-v3';
 let state = {};
 DAYS.forEach(d => state[d] = { m: '', t: '', n: '' }); // m = 8am-2pm, t = 2pm-8pm, n = 8pm-8am (noche)
-let weekStart = '2026-07-13'; // default: Lunes de referencia
+
+function toISODate(dt){
+  const y = dt.getFullYear();
+  const m = String(dt.getMonth() + 1).padStart(2, '0');
+  const d = String(dt.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+function mondayOfCurrentWeek(){
+  const today = new Date();
+  const dow = today.getDay(); // 0=domingo, 1=lunes, ... 6=sábado
+  const diff = dow === 0 ? -6 : 1 - dow; // días a restar para llegar al lunes
+  today.setDate(today.getDate() + diff);
+  return toISODate(today);
+}
+function weekFromUrl(){
+  const params = new URLSearchParams(window.location.search);
+  const w = params.get('week');
+  // Validar formato YYYY-MM-DD antes de usarlo
+  if(w && /^\d{4}-\d{2}-\d{2}$/.test(w)) return w;
+  return null;
+}
+let weekStart = weekFromUrl() || mondayOfCurrentWeek(); // ?week= en la URL manda; si no, el lunes en curso
 
 const daysEl = document.getElementById('days');
 const statusEl = document.getElementById('status');
@@ -343,14 +363,14 @@ async function onChange(e){
   statusEl.textContent = 'Guardando…';
 
   try{
-    const result = await apiSetShift(day, slot, val);
+    const result = await apiSetShift(weekStart, day, slot, val);
     if(result.ok){
-      DAYS.forEach(d => { if(result.state.schedule[d]) state[d] = result.state.schedule[d]; });
+      DAYS.forEach(d => { if(result.schedule[d]) state[d] = result.schedule[d]; });
       statusEl.textContent = 'Guardado ✓ (compartido con tu familia)';
     } else {
       // Alguien más ya tomó ese turno — revertimos y avisamos
       state[day][slot] = previous;
-      DAYS.forEach(d => { if(result.state && result.state.schedule[d]) state[d] = result.state.schedule[d]; });
+      DAYS.forEach(d => { if(result.schedule && result.schedule[d]) state[d] = result.schedule[d]; });
       showToast(result.message || 'Ese turno ya está ocupado');
       statusEl.textContent = 'No se guardó — turno ocupado por otra persona';
     }
@@ -365,99 +385,71 @@ async function onChange(e){
 // PEGA AQUÍ la URL de tu backend (termina en /exec) — ver instrucciones en backend-guardias.gs
 const BACKEND_URL = 'https://script.google.com/macros/s/AKfycbxV4PQq2yZBoYhBgePCWzEZvXdtWGR9z649FHh-gObeeUevR_5vQSjVvOxs-0SqdkyLGA/exec';
 
-let usingSharedStorage = true;
-
-async function apiGet(){
-  const res = await fetch(BACKEND_URL);
+async function apiGetWeek(ws){
+  const res = await fetch(BACKEND_URL + '?week=' + encodeURIComponent(ws));
   const data = await res.json();
   if(!data.ok) throw new Error('Respuesta inválida del backend');
-  return data.state;
+  return data.schedule;
 }
 
-async function apiSetShift(day, slot, name){
+async function apiSetShift(ws, day, slot, name){
   const res = await fetch(BACKEND_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain' }, // evita problemas de CORS con Apps Script
-    body: JSON.stringify({ action: 'setShift', day, slot, name })
+    body: JSON.stringify({ action: 'setShift', weekStart: ws, day, slot, name })
   });
   return await res.json();
 }
 
-async function apiSetWeekStart(newWeekStart){
-  const res = await fetch(BACKEND_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain' },
-    body: JSON.stringify({ action: 'setWeekStart', weekStart: newWeekStart })
-  });
-  return await res.json();
-}
-
-async function load(){
+async function loadWeek(ws){
+  statusEl.textContent = 'Cargando…';
   try{
-    const remoteState = await apiGet();
-    if(remoteState.weekStart) weekStart = remoteState.weekStart;
-    DAYS.forEach(d => {
-      if(remoteState.schedule[d]) state[d] = remoteState.schedule[d];
-    });
+    const schedule = await apiGetWeek(ws);
+    DAYS.forEach(d => { state[d] = schedule[d]; });
     statusEl.textContent = 'Datos compartidos con tu familia';
   }catch(err){
     console.error('No se pudo leer el backend:', err);
     statusEl.textContent = 'No se pudo conectar con el backend — revisa la URL configurada en el código';
   }
-  weekStartInput.value = weekStart;
   render();
 }
 
+async function load(){
+  weekStartInput.value = weekStart;
+  await loadWeek(weekStart);
+}
+
 weekStartInput.addEventListener('change', async () => {
-  const newWeekStart = weekStartInput.value;
-  weekStart = newWeekStart;
-  render();
-  try{
-    await apiSetWeekStart(newWeekStart);
-    statusEl.textContent = 'Semana actualizada ✓';
-  }catch(err){
-    statusEl.textContent = 'No se pudo actualizar la semana en el backend';
-  }
+  weekStart = weekStartInput.value;
+  await loadWeek(weekStart);
 });
 
 document.getElementById('newWeekBtn').addEventListener('click', async () => {
-  if(!confirm('Esto avanza la semana 7 días y borra los turnos actuales. ¿Continuar?')) return;
-
   // Avanzar 7 días
-  const [y, m, d] = weekStart.split('-').map(Number);
-  const next = new Date(y, m - 1, d);
+  const parts = weekStart.split('-').map(Number);
+  const next = new Date(parts[0], parts[1] - 1, parts[2]);
   next.setDate(next.getDate() + 7);
-  const newWeekStart = next.toISOString().slice(0, 10);
-  weekStart = newWeekStart;
-  weekStartInput.value = newWeekStart;
+  weekStart = toISODate(next);
+  weekStartInput.value = weekStart;
 
-  statusEl.textContent = 'Preparando nueva semana…';
-  try{
-    await apiSetWeekStart(newWeekStart);
-    for(const day of DAYS){
-      for(const slot of ['m','t','n']){
-        await apiSetShift(day, slot, '');
-      }
-    }
-    DAYS.forEach(dd => state[dd] = { m:'', t:'', n:'' });
-    statusEl.textContent = 'Nueva semana lista ✓';
-  }catch(err){
-    statusEl.textContent = 'La semana se actualizó, pero algo falló al limpiar turnos — revisa manualmente';
-  }
-  render();
+  // Cada semana se guarda por separado, así que la nueva ya empieza vacía —
+  // no hace falta borrar nada, solo cargarla
+  await loadWeek(weekStart);
 
-  // Abrir WhatsApp invitando a la familia a llenar la nueva semana
-  const invite = `*🩺 Nueva semana de guardias — ${weekRangeLabel()}*\n\nEntren aquí y marquen su turno:\nhttps://omarhdezalvares.github.io/guardias-mama/`;
+  // Abrir WhatsApp invitando a la familia a llenar la nueva semana,
+  // con el link apuntando directo a esa semana específica
+  const link = `https://omarhdezalvares.github.io/guardias-mama/?week=${weekStart}`;
+  const invite = `*🩺 Nueva semana de guardias — ${weekRangeLabel()}*\n\nEntren aquí y marquen su turno:\n${link}`;
   window.open('https://wa.me/?text=' + encodeURIComponent(invite), '_blank');
 });
 
 document.getElementById('resetBtn').addEventListener('click', async () => {
-  if(!confirm('¿Borrar todas las guardias de la semana?')) return;
+  if(!confirm('¿Borrar las guardias de la semana que estás viendo (' + weekRangeLabel() + ')?')) return;
   statusEl.textContent = 'Borrando…';
   try{
     for(const day of DAYS){
       for(const slot of ['m','t','n']){
-        await apiSetShift(day, slot, '');
+        await apiSetShift(weekStart, day, slot, '');
       }
     }
     DAYS.forEach(d => state[d] = { m:'', t:'', n:'' });

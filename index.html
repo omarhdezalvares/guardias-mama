@@ -80,6 +80,20 @@
     color:var(--rose);
     font-weight:600;
   }
+  .btn-newweek{
+    width:100%;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size:13.5px;
+    font-weight:600;
+    border:1px dashed var(--rose);
+    background:#FBF1F1;
+    color:var(--plum-dark);
+    border-radius:12px;
+    padding:11px 14px;
+    margin-bottom:16px;
+    cursor:pointer;
+  }
+  .btn-newweek:active{background:#F5E2E2;}
   .day{
     background:var(--card);
     border:1px solid var(--line);
@@ -223,6 +237,8 @@
     <label for="weekStart">Semana que empieza el (Lunes)</label>
     <input type="date" id="weekStart">
   </div>
+
+  <button class="btn-newweek" id="newWeekBtn">➜ Nueva semana (avanza 7 días y limpia turnos)</button>
 
   <div id="days"></div>
 
@@ -402,6 +418,37 @@ weekStartInput.addEventListener('change', async () => {
   }catch(err){
     statusEl.textContent = 'No se pudo actualizar la semana en el backend';
   }
+});
+
+document.getElementById('newWeekBtn').addEventListener('click', async () => {
+  if(!confirm('Esto avanza la semana 7 días y borra los turnos actuales. ¿Continuar?')) return;
+
+  // Avanzar 7 días
+  const [y, m, d] = weekStart.split('-').map(Number);
+  const next = new Date(y, m - 1, d);
+  next.setDate(next.getDate() + 7);
+  const newWeekStart = next.toISOString().slice(0, 10);
+  weekStart = newWeekStart;
+  weekStartInput.value = newWeekStart;
+
+  statusEl.textContent = 'Preparando nueva semana…';
+  try{
+    await apiSetWeekStart(newWeekStart);
+    for(const day of DAYS){
+      for(const slot of ['m','t','n']){
+        await apiSetShift(day, slot, '');
+      }
+    }
+    DAYS.forEach(dd => state[dd] = { m:'', t:'', n:'' });
+    statusEl.textContent = 'Nueva semana lista ✓';
+  }catch(err){
+    statusEl.textContent = 'La semana se actualizó, pero algo falló al limpiar turnos — revisa manualmente';
+  }
+  render();
+
+  // Abrir WhatsApp invitando a la familia a llenar la nueva semana
+  const invite = `*🩺 Nueva semana de guardias — ${weekRangeLabel()}*\n\nEntren aquí y marquen su turno:\nhttps://omarhdezalvares.github.io/guardias-mama/`;
+  window.open('https://wa.me/?text=' + encodeURIComponent(invite), '_blank');
 });
 
 document.getElementById('resetBtn').addEventListener('click', async () => {

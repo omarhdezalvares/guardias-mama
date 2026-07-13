@@ -292,6 +292,37 @@
   }
   .modal-cancel{background:#F1EBE5;color:var(--ink-soft);}
   .modal-confirm{background:var(--plum-dark);color:#fff;}
+  .modal-confirm:disabled, .modal-cancel:disabled{opacity:.6;cursor:not-allowed;}
+
+  .spinner{
+    display:inline-block;
+    width:13px;
+    height:13px;
+    border:2px solid rgba(107,63,77,0.25);
+    border-top-color:var(--plum-dark);
+    border-radius:50%;
+    animation:spin .7s linear infinite;
+    vertical-align:middle;
+    margin-right:6px;
+  }
+  .spinner.on-dark{
+    border-color:rgba(255,255,255,0.4);
+    border-top-color:#fff;
+  }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+
+  .page-loading{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+    padding:60px 0;
+    color:var(--ink-soft);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size:13.5px;
+  }
+  .slot.saving{opacity:.55;}
+  .slot select:disabled{cursor:wait;}
 </style>
 </head>
 <body>
@@ -438,11 +469,14 @@ async function onChange(e){
   const slot = e.target.dataset.slot;
   const val = e.target.value;
   const previous = state[day][slot];
+  const selectEl = e.target;
+  const slotEl = selectEl.closest('.slot');
 
-  // Optimista: se ve el cambio de inmediato
+  // Optimista: se ve el cambio de inmediato, con spinner mientras se confirma
   state[day][slot] = val;
-  render();
-  statusEl.textContent = 'Guardando…';
+  selectEl.disabled = true;
+  if(slotEl) slotEl.classList.add('saving');
+  statusEl.innerHTML = `<span class="spinner"></span> Guardando…`;
 
   try{
     const result = await apiSetShift(weekStart, day, slot, val);
@@ -484,7 +518,8 @@ async function apiSetShift(ws, day, slot, name){
 }
 
 async function loadWeek(ws){
-  statusEl.textContent = 'Cargando…';
+  daysEl.innerHTML = `<div class="page-loading"><span class="spinner"></span> Cargando semana…</div>`;
+  statusEl.innerHTML = `<span class="spinner"></span> Cargando…`;
   try{
     const schedule = await apiGetWeek(ws);
     DAYS.forEach(d => { state[d] = schedule[d]; });
@@ -549,14 +584,20 @@ document.getElementById('whoConfirm').addEventListener('click', async () => {
     showToast('Selecciona tu nombre primero');
     return;
   }
-  whoModal.classList.remove('show');
+
+  const confirmBtn = document.getElementById('whoConfirm');
+  const cancelBtn = document.getElementById('whoCancel');
+  const originalLabel = confirmBtn.textContent;
+  confirmBtn.disabled = true;
+  cancelBtn.disabled = true;
+  confirmBtn.innerHTML = `<span class="spinner on-dark"></span> Repitiendo…`;
 
   const parts = weekStart.split('-').map(Number);
   const prevDate = new Date(parts[0], parts[1] - 1, parts[2]);
   prevDate.setDate(prevDate.getDate() - 7);
   const prevWeek = toISODate(prevDate);
 
-  statusEl.textContent = `Repitiendo los turnos de ${me}…`;
+  statusEl.innerHTML = `<span class="spinner"></span> Repitiendo los turnos de ${me}…`;
   try{
     const prevSchedule = await apiGetWeek(prevWeek);
     let copiados = 0;
@@ -592,6 +633,11 @@ document.getElementById('whoConfirm').addEventListener('click', async () => {
     console.error('Error al repetir la semana pasada:', err);
     statusEl.textContent = 'No se pudo conectar con el backend para copiar la semana pasada';
   }
+
+  confirmBtn.disabled = false;
+  cancelBtn.disabled = false;
+  confirmBtn.textContent = originalLabel;
+  whoModal.classList.remove('show');
 });
 
 function buildMessage(){
